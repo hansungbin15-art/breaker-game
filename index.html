@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>벽돌깨기 게임</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+    background: linear-gradient(135deg,#1e1b4b,#312e81 40%,#5b21b6 100%);
+    min-height:100vh;
+    display:flex; align-items:center; justify-content:center;
+    color:#fff;
+    overflow:hidden;
+  }
+  .app { width:100%; max-width:1000px; padding:20px; }
+
+  /* Login screen */
+  #loginScreen {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-height:80vh;
+    animation: fadeIn .6s ease;
+  }
+  .login-card {
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 380px;
+    text-align:center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .login-card h1 {
+    font-size: 28px;
+    margin-bottom: 6px;
+    background: linear-gradient(90deg,#f472b6,#818cf8,#38bdf8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .login-card p { color:#c7d2fe; font-size:13px; margin-bottom:26px; }
+  .login-card input {
+    width:100%;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(255,255,255,0.08);
+    color:#fff;
+    font-size:15px;
+    outline:none;
+    margin-bottom:16px;
+    transition: border .2s, background .2s;
+  }
+  .login-card input::placeholder { color:#a5b4fc; }
+  .login-card input:focus { border-color:#818cf8; background: rgba(255,255,255,0.14); }
+  .login-card button {
+    width:100%;
+    padding: 14px;
+    border:none;
+    border-radius: 12px;
+    background: linear-gradient(90deg,#6366f1,#a855f7);
+    color:#fff;
+    font-size:16px;
+    font-weight:600;
+    cursor:pointer;
+    transition: transform .15s, box-shadow .15s;
+  }
+  .login-card button:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(99,102,241,0.5); }
+  .login-error { color:#fca5a5; font-size:13px; margin-top:10px; min-height:16px; }
+
+  /* Game screen */
+  #gameScreen { display:none; }
+  .topbar {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .topbar .title {
+    font-size: 22px; font-weight:700;
+    background: linear-gradient(90deg,#f472b6,#818cf8,#38bdf8);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .user-chip {
+    display:flex; align-items:center; gap:10px;
+    background: rgba(255,255,255,0.08);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .user-chip .dot { width:8px; height:8px; border-radius:50%; background:#4ade80; box-shadow:0 0 8px #4ade80; }
+  .user-chip button {
+    background: rgba(255,255,255,0.12);
+    border:none; color:#fff; padding:5px 10px; border-radius:8px; cursor:pointer; font-size:12px;
+  }
+
+  .layout {
+    display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; justify-content:center;
+  }
+
+  .game-panel {
+    background: rgba(0,0,0,0.25);
+    border-radius: 20px;
+    padding: 18px;
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+  }
+  #gameCanvas {
+    display:block;
+    background: radial-gradient(circle at 50% 0%, #1e1b4b, #0f0c29);
+    border-radius: 12px;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.6);
+  }
+  .stats {
+    display:flex; justify-content:space-between;
+    margin-top:12px;
+    font-size:14px;
+    color:#c7d2fe;
+  }
+  .stats span b { color:#fff; font-size:16px; }
+
+  .controls-hint {
+    text-align:center; font-size:12px; color:#a5b4fc; margin-top:10px;
+  }
+
+  .overlay {
+    position:absolute; inset:0;
+    display:none;
+    align-items:center; justify-content:center;
+    flex-direction:column;
+    background: rgba(10,8,30,0.85);
+    border-radius: 12px;
+    text-align:center;
+    gap: 14px;
+    animation: fadeIn .3s ease;
+  }
+  .overlay.show { display:flex; }
+  .overlay h2 { font-size: 26px; }
+  .overlay p { color:#c7d2fe; font-size:14px; }
+  .overlay button {
+    padding: 12px 26px;
+    border:none; border-radius: 10px;
+    background: linear-gradient(90deg,#6366f1,#a855f7);
+    color:#fff; font-weight:600; font-size:14px; cursor:pointer;
+  }
+  .canvas-wrap { position:relative; }
+
+  /* Leaderboard */
+  .leaderboard {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 20px;
+    padding: 20px;
+    width: 280px;
+    min-height: 400px;
+    backdrop-filter: blur(8px);
+  }
+  .leaderboard h3 {
+    font-size: 16px;
+    margin-bottom: 14px;
+    display:flex; align-items:center; gap:8px;
+  }
+  .leaderboard h3 .icon { font-size: 18px; }
+  .lb-list { list-style:none; display:flex; flex-direction:column; gap:8px; }
+  .lb-item {
+    display:flex; align-items:center; gap:10px;
+    background: rgba(255,255,255,0.05);
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: 13px;
+  }
+  .lb-item.me { background: rgba(129,140,248,0.25); border:1px solid rgba(129,140,248,0.5); }
+  .lb-rank {
+    width: 22px; height:22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size: 11px; font-weight:700;
+    background: rgba(255,255,255,0.12);
+    flex-shrink:0;
+  }
+  .lb-rank.gold { background: linear-gradient(135deg,#fbbf24,#f59e0b); color:#000; }
+  .lb-rank.silver { background: linear-gradient(135deg,#e5e7eb,#9ca3af); color:#000; }
+  .lb-rank.bronze { background: linear-gradient(135deg,#d97706,#92400e); color:#fff; }
+  .lb-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lb-score { font-weight:700; color:#a5b4fc; }
+  .lb-empty { color:#818cf8; font-size:13px; text-align:center; padding: 30px 0; }
+  .fb-status { font-size:11px; margin-top:14px; text-align:center; color:#818cf8; }
+
+  @keyframes fadeIn { from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+  @media (max-width: 760px) {
+    #gameCanvas { width: 100%; height: auto; }
+    .leaderboard { width: 100%; min-height: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 로그인 화면 -->
+  <div id="loginScreen">
+    <div class="login-card">
+      <h1>🧱 벽돌깨기</h1>
+      <p>이름을 입력하고 게임을 시작하세요</p>
+      <input id="nameInput" type="text" placeholder="닉네임 입력 (최대 10자)" maxlength="10" />
+      <button id="loginBtn">게임 시작</button>
+      <div class="login-error" id="loginError"></div>
+    </div>
+  </div>
+
+  <!-- 게임 화면 -->
+  <div id="gameScreen">
+    <div class="topbar">
+      <div class="title">🧱 벽돌깨기</div>
+      <div class="user-chip">
+        <span class="dot"></span>
+        <span id="playerNameLabel"></span>
+        <button id="logoutBtn">나가기</button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="game-panel">
+        <div class="canvas-wrap">
+          <canvas id="gameCanvas" width="560" height="420"></canvas>
+          <div class="overlay" id="overlayStart">
+            <h2>준비되셨나요?</h2>
+            <p>← → 화살표 키로 패들을 움직여 공을 튕기세요</p>
+            <button id="startBtn">시작하기</button>
+          </div>
+          <div class="overlay" id="overlayWin">
+            <h2>🎉 승리했습니다!</h2>
+            <p id="winScoreText"></p>
+            <button id="restartWinBtn">다시 하기</button>
+          </div>
+          <div class="overlay" id="overlayLose">
+            <h2>💥 게임 오버</h2>
+            <p id="loseScoreText"></p>
+            <button id="restartLoseBtn">다시 하기</button>
+          </div>
+        </div>
+        <div class="stats">
+          <span>점수: <b id="scoreLabel">0</b></span>
+          <span>목숨: <b id="livesLabel">3</b></span>
+          <span>레벨: <b id="levelLabel">1</b></span>
+        </div>
+        <div class="controls-hint">← → 화살표 키로 조작 · 스페이스로 일시정지</div>
+      </div>
+
+      <div class="leaderboard">
+        <h3><span class="icon">🏆</span> 실시간 순위 (TOP 10)</h3>
+        <ul class="lb-list" id="lbList">
+          <li class="lb-empty">기록을 불러오는 중...</li>
+        </ul>
+        <div class="fb-status" id="fbStatus"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
+
+<script>
+/* =========================================================
+   Firebase 설정 - 본인의 Firebase 프로젝트 정보로 교체하세요
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyBSykuBJQG6WTC1DfjjqyUKTxK0oraS1sA",
+  authDomain: "game-5a722.firebaseapp.com",
+  databaseURL: "https://game-5a722-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "game-5a722",
+  storageBucket: "game-5a722.firebasestorage.app",
+  messagingSenderId: "572592768400",
+  appId: "1:572592768400:web:e84d1fd5c131adb3db9f15",
+  measurementId: "G-EZH966JXFN"
+};
+
+let firebaseEnabled = false;
+let db = null;
+
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.database();
+  firebaseEnabled = true;
+  try { firebase.analytics(); } catch (analyticsErr) {
+    console.warn("Analytics 초기화 실패 (게임 기능에는 영향 없음)", analyticsErr);
+  }
+} catch (e) {
+  console.warn("Firebase 초기화 실패 - 설정값을 확인하세요.", e);
+  firebaseEnabled = false;
+}
+
+/* =========================================================
+   로그인 처리
+   ========================================================= */
+const loginScreen = document.getElementById('loginScreen');
+const gameScreen = document.getElementById('gameScreen');
+const nameInput = document.getElementById('nameInput');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
+const playerNameLabel = document.getElementById('playerNameLabel');
+const logoutBtn = document.getElementById('logoutBtn');
+const fbStatus = document.getElementById('fbStatus');
+
+let playerName = "";
+
+function doLogin() {
+  const name = nameInput.value.trim();
+  if (!name) {
+    loginError.textContent = "이름을 입력해주세요.";
+    return;
+  }
+  if (name.length > 10) {
+    loginError.textContent = "이름은 10자 이하로 입력해주세요.";
+    return;
+  }
+  playerName = name;
+  playerNameLabel.textContent = playerName;
+  loginScreen.style.display = 'none';
+  gameScreen.style.display = 'block';
+  initLeaderboard();
+  resetGame(false);
+}
+
+loginBtn.addEventListener('click', doLogin);
+nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(); });
+
+logoutBtn.addEventListener('click', () => {
+  gameScreen.style.display = 'none';
+  loginScreen.style.display = 'flex';
+  nameInput.value = "";
+  loginError.textContent = "";
+  stopGameLoop();
+});
+
+fbStatus.textContent = firebaseEnabled
+  ? "실시간 순위와 연동되어 있습니다."
+  : "⚠ Firebase 설정이 필요합니다. 코드 상단 firebaseConfig 값을 채워주세요.";
+
+/* =========================================================
+   순위 시스템 (Firebase Realtime Database)
+   경로: /scores/{pushId} = { name, score, ts }
+   ========================================================= */
+function initLeaderboard() {
+  const lbList = document.getElementById('lbList');
+  if (!firebaseEnabled) {
+    lbList.innerHTML = '<li class="lb-empty">Firebase 설정이 필요합니다.</li>';
+    return;
+  }
+  const scoresRef = db.ref('scores').orderByChild('score').limitToLast(10);
+  scoresRef.on('value', (snapshot) => {
+    const entries = [];
+    snapshot.forEach((child) => {
+      entries.push(child.val());
+    });
+    entries.sort((a, b) => b.score - a.score);
+    renderLeaderboard(entries);
+  }, (err) => {
+    console.error(err);
+    lbList.innerHTML = '<li class="lb-empty">순위를 불러오지 못했습니다.</li>';
+  });
+}
+
+function renderLeaderboard(entries) {
+  const lbList = document.getElementById('lbList');
+  if (!entries.length) {
+    lbList.innerHTML = '<li class="lb-empty">아직 기록이 없습니다.<br>첫 기록을 세워보세요!</li>';
+    return;
+  }
+  lbList.innerHTML = entries.map((e, i) => {
+    const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+    const isMe = e.name === playerName ? 'me' : '';
+    return `<li class="lb-item ${isMe}">
+      <span class="lb-rank ${rankClass}">${i + 1}</span>
+      <span class="lb-name">${escapeHtml(e.name)}</span>
+      <span class="lb-score">${e.score}</span>
+    </li>`;
+  }).join('');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function submitScore(score) {
+  if (!firebaseEnabled || !playerName) return;
+  db.ref('scores').push({
+    name: playerName,
+    score: score,
+    ts: firebase.database.ServerValue.TIMESTAMP
+  });
+}
+
+/* =========================================================
+   벽돌깨기 게임 로직
+   ========================================================= */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+const overlayStart = document.getElementById('overlayStart');
+const overlayWin = document.getElementById('overlayWin');
+const overlayLose = document.getElementById('overlayLose');
+const startBtn = document.getElementById('startBtn');
+const restartWinBtn = document.getElementById('restartWinBtn');
+const restartLoseBtn = document.getElementById('restartLoseBtn');
+const scoreLabel = document.getElementById('scoreLabel');
+const livesLabel = document.getElementById('livesLabel');
+const levelLabel = document.getElementById('levelLabel');
+const winScoreText = document.getElementById('winScoreText');
+const loseScoreText = document.getElementById('loseScoreText');
+
+const PADDLE_W = 90, PADDLE_H = 12;
+const BALL_R = 7;
+const BRICK_ROWS = 5, BRICK_COLS = 8;
+const BRICK_W = 58, BRICK_H = 20, BRICK_GAP = 6, BRICK_TOP = 50, BRICK_LEFT = 20;
+const BRICK_COLORS = ['#f472b6', '#fb923c', '#facc15', '#4ade80', '#38bdf8'];
+
+let paddle, ball, bricks, score, lives, level, running, paused, animId;
+let leftPressed = false, rightPressed = false;
+
+function resetGame(keepScore) {
+  paddle = { x: W/2 - PADDLE_W/2, y: H - 24, w: PADDLE_W, h: PADDLE_H, speed: 7 };
+  ball = { x: W/2, y: H - 40, r: BALL_R, dx: 3.2, dy: -3.6 };
+  bricks = [];
+  for (let r = 0; r < BRICK_ROWS; r++) {
+    for (let c = 0; c < BRICK_COLS; c++) {
+      bricks.push({
+        x: BRICK_LEFT + c * (BRICK_W + BRICK_GAP),
+        y: BRICK_TOP + r * (BRICK_H + BRICK_GAP),
+        w: BRICK_W, h: BRICK_H,
+        alive: true,
+        color: BRICK_COLORS[r % BRICK_COLORS.length]
+      });
+    }
+  }
+  if (!keepScore) { score = 0; lives = 3; level = 1; }
+  scoreLabel.textContent = score;
+  livesLabel.textContent = lives;
+  levelLabel.textContent = level;
+  running = false;
+  paused = false;
+  overlayWin.classList.remove('show');
+  overlayLose.classList.remove('show');
+  overlayStart.classList.add('show');
+  drawFrame();
+}
+
+function startGame() {
+  overlayStart.classList.remove('show');
+  running = true;
+  paused = false;
+  stopGameLoop();
+  gameLoop();
+}
+
+startBtn.addEventListener('click', startGame);
+restartWinBtn.addEventListener('click', () => { level++; resetGame(true); startGame(); });
+restartLoseBtn.addEventListener('click', () => resetGame(false));
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft') leftPressed = true;
+  if (e.key === 'ArrowRight') rightPressed = true;
+  if (e.key === ' ' && running) {
+    paused = !paused;
+    if (!paused) gameLoop();
+  }
+  if (['ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+});
+document.addEventListener('keyup', (e) => {
+  if (e.key === 'ArrowLeft') leftPressed = false;
+  if (e.key === 'ArrowRight') rightPressed = false;
+});
+
+function stopGameLoop() {
+  if (animId) cancelAnimationFrame(animId);
+  running = false;
+}
+
+function gameLoop() {
+  if (!running || paused) return;
+  update();
+  drawFrame();
+  animId = requestAnimationFrame(gameLoop);
+}
+
+function update() {
+  if (leftPressed) paddle.x -= paddle.speed;
+  if (rightPressed) paddle.x += paddle.speed;
+  paddle.x = Math.max(0, Math.min(W - paddle.w, paddle.x));
+
+  ball.x += ball.dx;
+  ball.y += ball.dy;
+
+  if (ball.x - ball.r < 0 || ball.x + ball.r > W) ball.dx *= -1;
+  if (ball.y - ball.r < 0) ball.dy *= -1;
+
+  if (ball.y + ball.r >= paddle.y && ball.y + ball.r <= paddle.y + paddle.h &&
+      ball.x >= paddle.x && ball.x <= paddle.x + paddle.w && ball.dy > 0) {
+    const hitPos = (ball.x - (paddle.x + paddle.w/2)) / (paddle.w/2);
+    ball.dx = hitPos * 5;
+    ball.dy = -Math.abs(ball.dy);
+  }
+
+  if (ball.y - ball.r > H) {
+    lives--;
+    livesLabel.textContent = lives;
+    if (lives <= 0) {
+      endGame(false);
+      return;
+    } else {
+      ball.x = W/2; ball.y = H - 40; ball.dx = 3.2; ball.dy = -3.6;
+      paddle.x = W/2 - paddle.w/2;
+    }
+  }
+
+  let aliveCount = 0;
+  for (const b of bricks) {
+    if (!b.alive) continue;
+    aliveCount++;
+    if (ball.x + ball.r > b.x && ball.x - ball.r < b.x + b.w &&
+        ball.y + ball.r > b.y && ball.y - ball.r < b.y + b.h) {
+      b.alive = false;
+      ball.dy *= -1;
+      score += 10;
+      scoreLabel.textContent = score;
+      aliveCount--;
+    }
+  }
+
+  if (aliveCount === 0) {
+    endGame(true);
+  }
+}
+
+function endGame(won) {
+  stopGameLoop();
+  if (won) {
+    winScoreText.textContent = `최종 점수: ${score}`;
+    overlayWin.classList.add('show');
+  } else {
+    loseScoreText.textContent = `최종 점수: ${score}`;
+    overlayLose.classList.add('show');
+  }
+  submitScore(score);
+}
+
+function drawFrame() {
+  ctx.clearRect(0, 0, W, H);
+
+  // 벽돌
+  for (const b of bricks) {
+    if (!b.alive) continue;
+    ctx.fillStyle = b.color;
+    ctx.shadowColor = b.color;
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(b.x, b.y, b.w, b.h, 4);
+    else ctx.rect(b.x, b.y, b.w, b.h);
+    ctx.fill();
+  }
+  ctx.shadowBlur = 0;
+
+  // 패들
+  const grad = ctx.createLinearGradient(paddle.x, 0, paddle.x + paddle.w, 0);
+  grad.addColorStop(0, '#6366f1');
+  grad.addColorStop(1, '#a855f7');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(paddle.x, paddle.y, paddle.w, paddle.h, 6);
+  else ctx.rect(paddle.x, paddle.y, paddle.w, paddle.h);
+  ctx.fill();
+
+  // 공
+  ctx.beginPath();
+  ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.shadowColor = '#fff';
+  ctx.shadowBlur = 10;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  if (paused) {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('일시정지 (스페이스로 재개)', W/2, H/2);
+  }
+}
+</script>
+</body>
+</html>
